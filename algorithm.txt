@@ -1,0 +1,50 @@
+FIFO Channels
+
+Known IDs in process:
+    - PREVIOUS_PROC_ID
+    - CURRENT_PROC_ID
+======================
+
+
+structure Message {
+    initiator = CURRENT_PROC_ID
+    seen_token = -1
+    token_id = (?)
+    with_token = false
+}
+=============================
+
+
+sendMsg(
+    Message {
+        initiator = CURRENT_PROC_ID
+        seen_token = -1
+        token_id = (?)
+        with_token = false
+    }
+)
+
+
+=============================
+event onMsgReceived(message):
+    if ((process in CS) or (message.seen_token != -1)) :
+        message.seen_token = CURRENT_PROC_ID
+        send(message)
+    else if (message.initiator == PREVIOUS_PROC_ID) :
+        message.seen_token = CURRENT_PROC_ID
+        sendMsg(message)
+    else if (message.with_token) :
+        GO_TO_CRITICAL_SECTION()
+        message.with_token = true
+
+
+=======================
+sendMsg
+    // TO DO
+
+
+=======================
+listen :
+    Wait until:
+        message 
+    
