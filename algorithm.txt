@@ -1,7 +1,6 @@
 FIFO Channels
 
 Known IDs in process:
-    - PREVIOUS_PROC_ID
     - CURRENT_PROC_ID
 ======================
 
@@ -62,7 +61,7 @@ event onMsgReceived(message) :
         confirmationReceived = true //turn off timeout, we received confirmation
         mtx.unlock()
     else if ((message.initiator == CURRENT_PROC_ID) and (message.seen_token == -1) and (currentTokenID == message.token_id)) :
-        sendMsg(CURRENT_PROC_ID, -1, currentTokenID, true)
+        sendMsg(CURRENT_PROC_ID, -1, currentTokenID, true)  // generate the token, because previous one is lost
     else if (message.seen_token == -1) :
         if (hasToken) :
             sendMsg(message.initiator, CURRENT_PROC_ID, message.token_id, false)
@@ -74,6 +73,6 @@ event onMsgReceived(message) :
 
 =======================
 listen :
-    Wait until:
-        message 
+    Wait until message is received:
+        SYNCHRONIZED onMsgReceived(message)
     
