@@ -9,38 +9,67 @@ Known IDs in process:
 structure Message {
     initiator = CURRENT_PROC_ID
     seen_token = -1
-    token_id = (?)
     with_token = false
 }
+
+bool confirmationReceived = false
+bool hasToken = false
+int currentTokenID = 0
+Mutex mtx;
 =============================
 
 
-sendMsg(
+sendMsg(ini, st, id, wt) {
     Message {
-        initiator = CURRENT_PROC_ID
-        seen_token = -1
-        token_id = (?)
-        with_token = false
+        initiator = ini
+        seen_token = st
+        token_id = id
+        with_token = wt
     }
-)
+}
 
+timeout() :
+    wait some established time(...) //Need to be long enough to perform one loop, otherwise it can stack forever
+    mtx.lock()
+    if confirmationReceived :
+        mtx.unlock()
+    else :
+        mtx.unlock()
+        sendMsg(CURRENT_PROC_ID, -1, currentTokenID, false)
+        ASYNC timeout()
 
 =============================
-event onMsgReceived(message):
-    if ((process in CS) or (message.seen_token != -1)) :
-        message.seen_token = CURRENT_PROC_ID
-        send(message)
-    else if (message.initiator == PREVIOUS_PROC_ID) :
-        message.seen_token = CURRENT_PROC_ID
-        sendMsg(message)
-    else if (message.with_token) :
+event onMsgReceived(message) :
+    if (message.with_token) :
+        mtx.lock()
+        confirmationReceived = true //turn off timeout, we have token
+        mtx.unlock()
+        hasToken = true
+        if (PROC_NO_1) :
+            currentTokenID = (currentTokenID + 1) mod PROC_COUNT
+        else :
+            currentTokenID = message.token_id
+        sendMsg(message.initiator, CURRENT_PROC_ID, currentTokenID, false)
         GO_TO_CRITICAL_SECTION()
-        message.with_token = true
-
-
-=======================
-sendMsg
-    // TO DO
+        mtx.lock()
+        confirmationReceived = false
+        mtx.unlock()
+        ASYNC timeout()
+        hasToken = false
+        sendMsg(CURRENT_PROC_ID, -1, currentTokenID, true)
+    else if ((message.initiator == CURRENT_PROC_ID) and (message.seen_token != -1)) :
+        mtx.lock()
+        confirmationReceived = true //turn off timeout, we received confirmation
+        mtx.unlock()
+    else if ((message.initiator == CURRENT_PROC_ID) and (message.seen_token == -1) and (currentTokenID == message.token_id)) :
+        sendMsg(CURRENT_PROC_ID, -1, currentTokenID, true)
+    else if (message.seen_token == -1) :
+        if (hasToken) :
+            sendMsg(message.initiator, CURRENT_PROC_ID, message.token_id, false)
+        else :
+            sendMsg(message.initiator, message.seen_token, message.token_id, false)
+    else if (message.seen_token != -1) :
+        sendMsg(message.initiator, message.seen_token, message.token_id, false)
 
 
 =======================
