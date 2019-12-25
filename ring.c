@@ -22,6 +22,7 @@
 #define WITHOUT_TOKEN 0
 #define PROCESS_ZERO 0
 #define NOBODY_SEES_TOKEN -1
+#define LAMPORT_VALUE_TO_FINISH 20 //set INT_MAX for infinite
 
 //TAG
 #define TAG 22
@@ -31,14 +32,13 @@ pthread_mutex_t lamportMtx = PTHREAD_MUTEX_INITIALIZER;
 
 //SORTING HELPERS
 #define NUMBER_OF_LOGS 1000
-#define MAX_STRING_SIZE 100
+#define MAX_STRING_SIZE 150
 
 typedef int bool;
 enum { false, true };
 
 char logs[NUMBER_OF_LOGS][MAX_STRING_SIZE];
 int logID = 0;
-bool finished = false;
 int N;
 int currentProcID;
 int nextProcID;
@@ -106,30 +106,30 @@ void *CriticalSectionOperations()
 {
     log("[L: %d][ID: %d] Entering CS.\n", lamportClock, currentProcID, 0);
     msleep(CS_TIME);
-    printf("[L: %d][ID: %d] Leaving CS.\n", lamportClock, currentProcID);
+    log("[L: %d][ID: %d] Leaving CS.\n", lamportClock, currentProcID, 0);
     hasToken = false;
     sendMsg(currentProcID, NOBODY_SEES_TOKEN, currentTokenID, WITH_TOKEN);
-    printf("[L: %d][ID: %d] Send msg WITH_TOKEN to process %d.\n", lamportClock, currentProcID, nextProcID);
+    log("[L: %d][ID: %d] Send msg WITH_TOKEN to process %d.\n", lamportClock, currentProcID, nextProcID);
     pthread_exit(NULL);
 }
 
 void *DetectionTimeout()
 {
     bool again = true;
-    printf("[L: %d][ID: %d] DT activated.\n", lamportClock, currentProcID);
-    while(again && !finished){
+    log("[L: %d][ID: %d] DT activated.\n", lamportClock, currentProcID, 0);
+    while(again && lamportClock <= LAMPORT_VALUE_TO_FINISH){
         msleep(TIMEOUT_TIME);
         pthread_mutex_lock(&confirmationReceivedMtx);
         if (confirmationReceived) {
             again = false;
         } else {
             sendMsg(currentProcID, NOBODY_SEES_TOKEN, currentTokenID, WITHOUT_TOKEN);
-            printf("[L: %d][ID: %d] Confirmation not yet received, checking message sent again to process %d.\n", lamportClock, currentProcID, nextProcID);
+            log("[L: %d][ID: %d] Confirmation not yet received, checking message sent again to process %d.\n", lamportClock, currentProcID, nextProcID);
         }
         pthread_mutex_unlock(&confirmationReceivedMtx);
     }
-    if (!finished) {
-        printf("[L: %d][ID: %d] Confirmation received, closing DT.\n", lamportClock, currentProcID);
+    if (lamportClock <= LAMPORT_VALUE_TO_FINISH) {
+        log("[L: %d][ID: %d] Confirmation received, closing DT.\n", lamportClock, currentProcID, 0);
     }
     pthread_exit(NULL);
 }
@@ -176,19 +176,19 @@ int main (int argc, char *argv[])
 
     //Init
     if (currentProcID == PROCESS_ZERO) {
-        printf("[L: %d][ID: %d] INIT.\n", lamportClock, currentProcID);
+        log("[L: %d][ID: %d] INIT.\n", lamportClock, currentProcID, 0);
         hasToken = true;
         createThread(CS_TYPE);
         createThread(DT_TYPE);
     }
-    while(!finished){
+    while(lamportClock <= LAMPORT_VALUE_TO_FINISH){
         MPI_Recv(&recv, 1, mpi_data, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         pthread_mutex_lock(&lamportMtx);
         lamportClock = max(recv.lamport, lamportClock) + 1;
         pthread_mutex_unlock(&lamportMtx);
 
         if (recv.with_token == WITH_TOKEN) {
-            printf("[L: %d][ID: %d] Receive WITH_TOKEN message.\n", lamportClock, currentProcID);
+            log("[L: %d][ID: %d] Receive WITH_TOKEN message.\n", lamportClock, currentProcID, 0);
             pthread_mutex_lock(&confirmationReceivedMtx);
             confirmationReceived = true;
             pthread_mutex_unlock(&confirmationReceivedMtx);
@@ -205,36 +205,58 @@ int main (int argc, char *argv[])
             pthread_mutex_unlock(&confirmationReceivedMtx);
             createThread(DT_TYPE);
         } else if (recv.initiator == currentProcID && recv.seen_token != NOBODY_SEES_TOKEN) {
-            printf("[L: %d][ID: %d] Receive OUR checking message (token was seen). Token was received by next process. :)\n", lamportClock, currentProcID);
+            log("[L: %d][ID: %d] Receive OUR checking message (token was seen). Token was received by next process. :)\n", lamportClock, currentProcID, 0);
             pthread_mutex_lock(&confirmationReceivedMtx);
             confirmationReceived = true;
             pthread_mutex_unlock(&confirmationReceivedMtx);
         } else if (recv.initiator == currentProcID && recv.seen_token == NOBODY_SEES_TOKEN && currentTokenID == recv.token_id && !hasToken) {
-            printf("[L: %d][ID: %d] Receive OUR checking message (token wasn't seen). Token WASN'T received by next process. :( Resending TOKEN.\n", lamportClock, currentProcID);
+            log("[L: %d][ID: %d] Receive OUR checking message (token wasn't seen). Token WASN'T received by next process. :( Resending TOKEN.\n", lamportClock, currentProcID, 0);
             sendMsg(currentProcID, NOBODY_SEES_TOKEN, currentTokenID, WITH_TOKEN);
         } else if (recv.seen_token == NOBODY_SEES_TOKEN) {
             if (hasToken) {
-                printf("[L: %d][ID: %d] Receive SOMEONE'S (%d) checking message (token wasn't seen). We are in CS.\n", lamportClock, currentProcID, recv.initiator);
+                log("[L: %d][ID: %d] Receive SOMEONE'S (%d) checking message (token wasn't seen). We are in CS.\n", lamportClock, currentProcID, recv.initiator);
                 sendMsg(recv.initiator, currentProcID, recv.token_id, WITHOUT_TOKEN);
             } else {
-                printf("[L: %d][ID: %d] Receive SOMEONE'S (%d) checking message (token wasn't seen). We are NOT in CS.\n", lamportClock, currentProcID, recv.initiator);
+                log("[L: %d][ID: %d] Receive SOMEONE'S (%d) checking message (token wasn't seen). We are NOT in CS.\n", lamportClock, currentProcID, recv.initiator);
                 sendMsg(recv.initiator, recv.seen_token, recv.token_id, WITHOUT_TOKEN);
             }
         } else if (recv.seen_token != NOBODY_SEES_TOKEN) {
-            printf("[L: %d][ID: %d] Receive SOMEONE'S (%d) checking message (token was seen). Just retransmit.\n", lamportClock, currentProcID, recv.initiator);
+            log("[L: %d][ID: %d] Receive SOMEONE'S (%d) checking message (token was seen). Just retransmit.\n", lamportClock, currentProcID, recv.initiator);
             sendMsg(recv.initiator, recv.seen_token, recv.token_id, false);
         }
     }
-
-
-    
     MPI_Barrier(MPI_COMM_WORLD);
+
+    if (currentProcID != PROCESS_ZERO) {
+        MPI_Recv(&recv, 1, mpi_data, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    } else {
+        remove("logsTmp.txt");
+    }
+    FILE *oFile;
+    oFile=fopen("logsTmp.txt", "a");
+    for (int idx = 0; idx < logID; idx++) {
+        fprintf(oFile, logs[idx]);
+    }
+    fclose(oFile);
+    sendMsg(currentProcID, NOBODY_SEES_TOKEN, currentTokenID, false);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
     if (currentProcID == PROCESS_ZERO) {
-        printf("=================================================================================\n");
-        printf("PRINTING SORTED LOGS:\n");
-        for (int idx = 0; idx < logID; idx++) {
-            printf("%s\n", logs[idx]);
+        printf("=========================================================================\n ");
+        printf("LOGS SORTED BY LAMPORT CLOCK.\n");
+        FILE *cmd=popen("sort -nk2 logsTmp.txt", "r");
+        char result[150];
+        remove("logs.txt");
+        FILE *oFile;
+        oFile=fopen("logs.txt", "w");
+        while (fgets(result, sizeof(result), cmd) !=NULL) {
+            printf("%s", result);
+            fprintf(oFile, result);
         }
+        fclose(oFile);
+        pclose(cmd);
+        remove("logsTmp.txt");
     }
 
 	MPI_Type_free(&mpi_data);

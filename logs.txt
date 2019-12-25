@@ -1,0 +1,106 @@
+[L: 0][ID: 0] DT activated.
+[L: 0][ID: 0] Entering CS.
+[L: 0][ID: 0] INIT.
+[L: 0][ID: 0] Leaving CS.
+[L: 1][ID: 0] Send msg WITH_TOKEN to process 1.
+[L: 2][ID: 1] Receive WITH_TOKEN message.
+[L: 3][ID: 1] DT activated.
+[L: 3][ID: 1] Entering CS.
+[L: 3][ID: 1] Leaving CS.
+[L: 4][ID: 1] Send msg WITH_TOKEN to process 2.
+[L: 4][ID: 2] Receive SOMEONE'S (0) checking message (token was seen). Just retransmit.
+[L: 6][ID: 0] Confirmation received, closing DT.
+[L: 6][ID: 0] Receive OUR checking message (token was seen). Token was received by next process. :)
+[L: 6][ID: 2] Receive WITH_TOKEN message.
+[L: 7][ID: 2] DT activated.
+[L: 7][ID: 2] Entering CS.
+[L: 7][ID: 2] Leaving CS.
+[L: 8][ID: 0] Receive SOMEONE'S (1) checking message (token was seen). Just retransmit.
+[L: 8][ID: 2] Send msg WITH_TOKEN to process 0.
+[L: 10][ID: 0] Receive WITH_TOKEN message.
+[L: 10][ID: 1] Confirmation received, closing DT.
+[L: 10][ID: 1] Receive OUR checking message (token was seen). Token was received by next process. :)
+[L: 11][ID: 0] DT activated.
+[L: 11][ID: 0] Entering CS.
+[L: 11][ID: 0] Leaving CS.
+[L: 12][ID: 0] Send msg WITH_TOKEN to process 1.
+[L: 12][ID: 1] Receive SOMEONE'S (2) checking message (token was seen). Just retransmit.
+[L: 14][ID: 1] Receive WITH_TOKEN message.
+[L: 14][ID: 2] Confirmation received, closing DT.
+[L: 14][ID: 2] Receive OUR checking message (token was seen). Token was received by next process. :)
+[L: 15][ID: 1] DT activated.
+[L: 15][ID: 1] Entering CS.
+[L: 15][ID: 1] Leaving CS.
+[L: 16][ID: 1] Send msg WITH_TOKEN to process 2.
+[L: 16][ID: 2] Receive SOMEONE'S (0) checking message (token was seen). Just retransmit.
+[L: 18][ID: 0] Confirmation received, closing DT.
+[L: 18][ID: 0] Receive OUR checking message (token was seen). Token was received by next process. :)
+[L: 18][ID: 2] Receive WITH_TOKEN message.
+[L: 19][ID: 2] DT activated.
+[L: 19][ID: 2] Entering CS.
+[L: 19][ID: 2] Leaving CS.
+[L: 20][ID: 0] Receive SOMEONE'S (1) checking message (token was seen). Just retransmit.
+[L: 20][ID: 2] Send msg WITH_TOKEN to process 0.
+[L: 22][ID: 0] Receive WITH_TOKEN message.
+[L: 22][ID: 1] Confirmation received, closing DT.
+[L: 22][ID: 1] Receive OUR checking message (token was seen). Token was received by next process. :)
+[L: 23][ID: 0] DT activated.
+[L: 23][ID: 0] Entering CS.
+[L: 23][ID: 0] Leaving CS.
+[L: 24][ID: 0] Send msg WITH_TOKEN to process 1.
+[L: 24][ID: 1] Receive SOMEONE'S (2) checking message (token was seen). Just retransmit.
+[L: 26][ID: 1] Receive WITH_TOKEN message.
+[L: 26][ID: 2] Confirmation received, closing DT.
+[L: 26][ID: 2] Receive OUR checking message (token was seen). Token was received by next process. :)
+[L: 27][ID: 1] DT activated.
+[L: 27][ID: 1] Entering CS.
+[L: 27][ID: 1] Leaving CS.
+[L: 28][ID: 1] Send msg WITH_TOKEN to process 2.
+[L: 28][ID: 2] Receive SOMEONE'S (0) checking message (token was seen). Just retransmit.
+[L: 30][ID: 0] Confirmation received, closing DT.
+[L: 30][ID: 0] Receive OUR checking message (token was seen). Token was received by next process. :)
+[L: 30][ID: 2] Receive WITH_TOKEN message.
+[L: 31][ID: 2] DT activated.
+[L: 31][ID: 2] Entering CS.
+[L: 31][ID: 2] Leaving CS.
+[L: 32][ID: 0] Receive SOMEONE'S (1) checking message (token was seen). Just retransmit.
+[L: 32][ID: 2] Send msg WITH_TOKEN to process 0.
+[L: 34][ID: 0] Receive WITH_TOKEN message.
+[L: 34][ID: 1] Confirmation received, closing DT.
+[L: 34][ID: 1] Receive OUR checking message (token was seen). Token was received by next process. :)
+[L: 35][ID: 0] DT activated.
+[L: 35][ID: 0] Entering CS.
+[L: 35][ID: 0] Leaving CS.
+[L: 36][ID: 0] Send msg WITH_TOKEN to process 1.
+[L: 36][ID: 1] Receive SOMEONE'S (2) checking message (token was seen). Just retransmit.
+[L: 38][ID: 1] Receive WITH_TOKEN message.
+[L: 38][ID: 2] Confirmation received, closing DT.
+[L: 38][ID: 2] Receive OUR checking message (token was seen). Token was received by next process. :)
+[L: 39][ID: 1] DT activated.
+[L: 39][ID: 1] Entering CS.
+[L: 39][ID: 1] Leaving CS.
+[L: 40][ID: 1] Send msg WITH_TOKEN to process 2.
+[L: 40][ID: 2] Receive SOMEONE'S (0) checking message (token was seen). Just retransmit.
+[L: 42][ID: 0] Confirmation received, closing DT.
+[L: 42][ID: 0] Receive OUR checking message (token was seen). Token was received by next process. :)
+[L: 42][ID: 2] Receive WITH_TOKEN message.
+[L: 43][ID: 2] DT activated.
+[L: 43][ID: 2] Entering CS.
+[L: 43][ID: 2] Leaving CS.
+[L: 44][ID: 0] Receive SOMEONE'S (1) checking message (token was seen). Just retransmit.
+[L: 44][ID: 2] Send msg WITH_TOKEN to process 0.
+[L: 46][ID: 0] Receive WITH_TOKEN message.
+[L: 46][ID: 1] Confirmation received, closing DT.
+[L: 46][ID: 1] Receive OUR checking message (token was seen). Token was received by next process. :)
+[L: 47][ID: 0] DT activated.
+[L: 47][ID: 0] Entering CS.
+[L: 47][ID: 0] Leaving CS.
+[L: 48][ID: 0] Send msg WITH_TOKEN to process 1.
+[L: 48][ID: 1] Receive SOMEONE'S (2) checking message (token was seen). Just retransmit.
+[L: 50][ID: 1] Receive WITH_TOKEN message.
+[L: 50][ID: 2] Confirmation received, closing DT.
+[L: 50][ID: 2] Receive OUR checking message (token was seen). Token was received by next process. :)
+[L: 51][ID: 1] DT activated.
+[L: 51][ID: 1] Entering CS.
+[L: 52][ID: 2] Receive SOMEONE'S (0) checking message (token was seen). Just retransmit.
+[L: 54][ID: 0] Receive OUR checking message (token was seen). Token was received by next process. :)
