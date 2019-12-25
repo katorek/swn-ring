@@ -75,10 +75,5 @@ event onMsgReceived(message) :
 =======================
 listen :
     Wait until:
-        message 
-
-=======================
-Run:
-    mpicc ring.c -o ring.o -Wall
-    mpirun -np N ring.o         
+        message   
     

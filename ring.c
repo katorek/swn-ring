@@ -21,8 +21,9 @@
 #define WITH_TOKEN 1
 #define WITHOUT_TOKEN 0
 #define PROCESS_ZERO 0
+#define TTL -100
 #define NOBODY_SEES_TOKEN -1
-#define LAMPORT_VALUE_TO_FINISH 20 //set INT_MAX for infinite
+#define LAMPORT_VALUE_TO_FINISH 100 //set INT_MAX for infinite
 
 //TAG
 #define TAG 22
@@ -222,9 +223,12 @@ int main (int argc, char *argv[])
             }
         } else if (recv.seen_token != NOBODY_SEES_TOKEN) {
             log("[L: %d][ID: %d] Receive SOMEONE'S (%d) checking message (token was seen). Just retransmit.\n", lamportClock, currentProcID, recv.initiator);
-            sendMsg(recv.initiator, recv.seen_token, recv.token_id, false);
+            sendMsg(recv.initiator, recv.seen_token, recv.token_id, WITHOUT_TOKEN);
         }
     }
+
+    log("[L: %d][ID: %d] Finished. Waiting for all.\n", lamportClock, currentProcID, 0);
+    sendMsg(currentProcID, NOBODY_SEES_TOKEN, currentTokenID, WITHOUT_TOKEN);
     MPI_Barrier(MPI_COMM_WORLD);
 
     if (currentProcID != PROCESS_ZERO) {
@@ -238,8 +242,8 @@ int main (int argc, char *argv[])
         fprintf(oFile, logs[idx]);
     }
     fclose(oFile);
-    sendMsg(currentProcID, NOBODY_SEES_TOKEN, currentTokenID, false);
 
+    sendMsg(TTL, NOBODY_SEES_TOKEN, currentTokenID, WITHOUT_TOKEN);
     MPI_Barrier(MPI_COMM_WORLD);
 
     if (currentProcID == PROCESS_ZERO) {
