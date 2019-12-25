@@ -7,14 +7,15 @@
 #include <mpi.h>
 #include <stddef.h>
 #include <unistd.h>
+#include <errno.h>
 
 //THREAD_TYPES
 #define CS_TYPE 0
 #define DT_TYPE 1
 
 //TIME
-#define TIMEOUT_TIME 3
-#define CS_TIME 6
+#define TIMEOUT_TIME 1000
+#define CS_TIME 500
 
 //TOKEN AND PROCESSES
 #define WITH_TOKEN 1
@@ -55,6 +56,27 @@ typedef struct msg_s {
     int lamport;
 } msg;
 
+int msleep(long msec)
+{
+    struct timespec ts;
+    int res;
+
+    if (msec < 0)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+
+    ts.tv_sec = msec / 1000;
+    ts.tv_nsec = (msec % 1000) * 1000000;
+
+    do {
+        res = nanosleep(&ts, &ts);
+    } while (res && errno == EINTR);
+
+    return res;
+}
+
 int max(int x, int y) {
     return x ^ ((x ^ y) & -(x < y));  
 } 
@@ -83,7 +105,7 @@ void log(char* text, int lamport, int val1, int val2) {
 void *CriticalSectionOperations()
 {
     log("[L: %d][ID: %d] Entering CS.\n", lamportClock, currentProcID, 0);
-    sleep(CS_TIME);
+    msleep(CS_TIME);
     printf("[L: %d][ID: %d] Leaving CS.\n", lamportClock, currentProcID);
     hasToken = false;
     sendMsg(currentProcID, NOBODY_SEES_TOKEN, currentTokenID, WITH_TOKEN);
@@ -96,7 +118,7 @@ void *DetectionTimeout()
     bool again = true;
     printf("[L: %d][ID: %d] DT activated.\n", lamportClock, currentProcID);
     while(again && !finished){
-        sleep(TIMEOUT_TIME);
+        msleep(TIMEOUT_TIME);
         pthread_mutex_lock(&confirmationReceivedMtx);
         if (confirmationReceived) {
             again = false;
