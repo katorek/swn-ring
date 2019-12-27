@@ -26,7 +26,7 @@
 #define LAMPORT_VALUE_TO_FINISH 600 //set INT_MAX for infinite
 
 //set percentage og succesfull msg delivery
-#define MSG_DELIVERY_CHANCE_PCT 50 
+#define MSG_DELIVERY_CHANCE_PCT 30 
 #define SURE_SENDING 0
 #define UNSURE_SENDING 1
 
@@ -48,11 +48,11 @@ int logID = 0;
 int N;
 int currentProcID;
 int nextProcID;
-bool confirmationReceived = false;
+bool confirmationReceived = true;
 bool hasToken = false;
 int currentTokenID = 0;
 int lamportClock = 0;
-int lastLamport = 0;
+int lastLamport = -1;
 MPI_Datatype mpi_data;
 
 typedef struct msg_s {
@@ -125,25 +125,21 @@ void *CriticalSectionOperations()
     hasToken = false;
     sendMsg(currentProcID, NOBODY_SEES_TOKEN, currentTokenID, WITH_TOKEN, currentProcID, lastLamport, UNSURE_SENDING);
     log("[L: %d][ID: %d] Send msg WITH_TOKEN to process %d.\n", lamportClock, currentProcID, nextProcID);
+    pthread_mutex_lock(&confirmationReceivedMtx);
+    confirmationReceived = false;
+    pthread_mutex_unlock(&confirmationReceivedMtx);
     pthread_exit(NULL);
 }
 
 void *DetectionTimeout()
 {
-    bool again = true;
-    log("[L: %d][ID: %d] DT activated.\n", lamportClock, currentProcID, 0);
-    while(again && lamportClock <= LAMPORT_VALUE_TO_FINISH){
-        msleep(TIMEOUT_TIME);
-        pthread_mutex_lock(&confirmationReceivedMtx);
-        if (confirmationReceived) {
-            again = false;
-        } else if (!hasToken) {
+    while(lamportClock <= LAMPORT_VALUE_TO_FINISH){
+        if (!confirmationReceived) {
+            msleep(TIMEOUT_TIME);
             sendMsg(currentProcID, NOBODY_SEES_TOKEN, currentTokenID, WITHOUT_TOKEN, currentProcID, lastLamport, UNSURE_SENDING);
             log("[L: %d][ID: %d] Confirmation not yet received, checking message sent again to process %d.\n", lamportClock, currentProcID, nextProcID);
         }
-        pthread_mutex_unlock(&confirmationReceivedMtx);
     }
-    log("[L: %d][ID: %d] Confirmation received, closing DT.\n", lamportClock, currentProcID, 0);
     pthread_exit(NULL);
 }
 
@@ -195,9 +191,11 @@ int main (int argc, char *argv[])
     if (currentProcID == PROCESS_ZERO) {
         log("[L: %d][ID: %d] INIT.\n", lamportClock, currentProcID, 0);
         hasToken = true;
+        lastLamport = lamportClock;
         createThread(CS_TYPE);
-        createThread(DT_TYPE);
     }
+    createThread(DT_TYPE);
+
     while(lamportClock <= LAMPORT_VALUE_TO_FINISH){
         MPI_Recv(&recv, 1, mpi_data, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         pthread_mutex_lock(&lamportMtx);
@@ -218,10 +216,6 @@ int main (int argc, char *argv[])
             lastLamport = lamportClock;
             sendMsg(recv.initiator, currentProcID, currentTokenID, WITHOUT_TOKEN, currentProcID, lastLamport, UNSURE_SENDING);
             createThread(CS_TYPE);
-            pthread_mutex_lock(&confirmationReceivedMtx);
-            confirmationReceived = false;
-            pthread_mutex_unlock(&confirmationReceivedMtx);
-            createThread(DT_TYPE);
         } else if (recv.initiator == currentProcID && recv.seen_token != NOBODY_SEES_TOKEN) {
             log("[L: %d][ID: %d] Receive OUR checking message (token was seen). Token was received by next process. :)\n", lamportClock, currentProcID, 0);
             pthread_mutex_lock(&confirmationReceivedMtx);
@@ -257,6 +251,9 @@ int main (int argc, char *argv[])
                     sendMsg(recv.initiator, recv.seen_token, token_id, WITHOUT_TOKEN, currentProcID, lastLamport, UNSURE_SENDING);
                 } else {
                     sendMsg(recv.initiator, recv.seen_token, token_id, WITHOUT_TOKEN, recv.last_id, recv.last_lamport, UNSURE_SENDING);
+                    pthread_mutex_lock(&confirmationReceivedMtx);
+                    confirmationReceived = true;
+                    pthread_mutex_unlock(&confirmationReceivedMtx);
                 }
             }
         } else if (recv.seen_token != NOBODY_SEES_TOKEN) {
@@ -314,6 +311,5 @@ int main (int argc, char *argv[])
     MPI_Finalize();
     return 0;
 }
-//TODO jest problem z tym error0 że z jakiegoś powodu 4 się jebie
 //TODO ogarnąć jak ogarnąć działanie lamporta w nieskończonośc (coby nie wywaliło nam MAX_INT)
 //TODO ogarnąć czy potrzeben są te token_id
