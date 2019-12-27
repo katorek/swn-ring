@@ -1,0 +1,72 @@
+FIFO Channels
+
+Known IDs in process:
+    - PREVIOUS_PROC_ID
+    - CURRENT_PROC_ID
+======================
+
+
+structure Message {
+    initiator = CURRENT_PROC_ID
+    with_token = false
+    token_id = 0
+}
+
+bool confirmationReceived = false
+bool hasToken = false
+int currentTokenID = if CURRENT_PROC_ID == 0 ? CURRENT_PROC_ID : CURRENT_PROC_ID + N;
+Mutex mtx;
+=============================
+
+
+sendMsg(ini, wt, id) {
+    Message {
+        initiator = ini
+        with_token = wt
+        token_id = id
+    }
+}
+
+timeout() :
+    wait some established time(...) //Need to be long enough to perform one loop, otherwise it can stack forever
+    if !confirmationReceived :
+        sendMsg(CURRENT_PROC_ID, false, currentTokenID)
+        ASYNC timeout()
+
+=============================
+event onMsgReceived(message) :
+    if (message.with_token) :
+        mtx.lock()
+        confirmationReceived = true //turn off timeout, we have token
+        mtx.unlock()
+        hasToken = true
+        currentTokenId = (currentTokenId + N) % (2 * N);
+        sendMsg(message.initiator, false, currentTokenId);
+        GO_TO_CRITICAL_SECTION()
+        hasToken = false
+        sendMsg(CURRENT_PROC_ID, true, currentTokenID)
+        mtx.lock()
+        confirmationReceived = false
+        mtx.unlock()
+        ASYNC timeout()
+    else if (message.initiator == CURRENT_PROC_ID) :
+        if (message.token_id != currentTokenId) :
+            mtx.lock()
+            confirmationReceived = true //turn off timeout, we received confirmation
+            mtx.unlock()
+        else :
+            sendMsg(CURRENT_PROC_ID, true, currentTokenId); // resend token
+    else :
+        if ((message.token_id + 1) % (2 * N) == currentTokenId) :
+            sendMsg(message.initiator, false, currentTokenId);
+        else :
+            sendMsg(message.initiator, false, message.token_id);
+            mtx.lock()
+            confirmationReceived = true //turn off timeout, we received confirmation
+            mtx.unlock()
+
+=======================
+listen :
+    Wait until:
+        message   
+    
