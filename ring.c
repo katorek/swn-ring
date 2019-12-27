@@ -14,8 +14,8 @@
 #define DT_TYPE 1
 
 //TIME
-#define TIMEOUT_TIME 300
-#define CS_TIME 600
+#define TIMEOUT_TIME 150
+#define CS_TIME 300
 
 //TOKEN AND PROCESSES
 #define WITH_TOKEN 1
@@ -23,10 +23,10 @@
 #define PROCESS_ZERO 0
 #define TTL -100
 #define NOBODY_SEES_TOKEN -1
-#define LAMPORT_VALUE_TO_FINISH 400 //set INT_MAX for infinite
+#define LAMPORT_VALUE_TO_FINISH 600 //set INT_MAX for infinite
 
 //set percentage og succesfull msg delivery
-#define MSG_DELIVERY_CHANCE_PCT 70 
+#define MSG_DELIVERY_CHANCE_PCT 50 
 #define SURE_SENDING 0
 #define UNSURE_SENDING 1
 
@@ -52,6 +52,7 @@ bool confirmationReceived = false;
 bool hasToken = false;
 int currentTokenID = 0;
 int lamportClock = 0;
+int lastLamport = 0;
 MPI_Datatype mpi_data;
 
 typedef struct msg_s {
@@ -60,6 +61,8 @@ typedef struct msg_s {
     int token_id;
     int with_token;
     int lamport;
+    int last_id;
+    int last_lamport;
 } msg;
 
 int msleep(long msec)
@@ -95,12 +98,14 @@ void log(char* text, int lamport, int val1, int val2) {
     pthread_mutex_unlock(&logsMtx);
 }
 
-void sendMsg(int initiator, int seen_token, int token_id, int with_token, int mode) {
+void sendMsg(int initiator, int seen_token, int token_id, int with_token, int last_id, int last_lamport, int mode) {
     msg send;
     send.initiator = initiator;
     send.seen_token = seen_token;
     send.token_id = token_id;
     send.with_token = with_token;
+    send.last_id = last_id;
+    send.last_lamport = last_lamport;
     pthread_mutex_lock(&lamportMtx);
     lamportClock++;
     send.lamport = lamportClock;
@@ -118,7 +123,7 @@ void *CriticalSectionOperations()
     msleep(CS_TIME);
     log("[L: %d][ID: %d] Leaving CS.\n", lamportClock, currentProcID, 0);
     hasToken = false;
-    sendMsg(currentProcID, NOBODY_SEES_TOKEN, currentTokenID, WITH_TOKEN, UNSURE_SENDING);
+    sendMsg(currentProcID, NOBODY_SEES_TOKEN, currentTokenID, WITH_TOKEN, currentProcID, lastLamport, UNSURE_SENDING);
     log("[L: %d][ID: %d] Send msg WITH_TOKEN to process %d.\n", lamportClock, currentProcID, nextProcID);
     pthread_exit(NULL);
 }
@@ -132,15 +137,13 @@ void *DetectionTimeout()
         pthread_mutex_lock(&confirmationReceivedMtx);
         if (confirmationReceived) {
             again = false;
-        } else {
-            sendMsg(currentProcID, NOBODY_SEES_TOKEN, currentTokenID, WITHOUT_TOKEN, UNSURE_SENDING);
+        } else if (!hasToken) {
+            sendMsg(currentProcID, NOBODY_SEES_TOKEN, currentTokenID, WITHOUT_TOKEN, currentProcID, lastLamport, UNSURE_SENDING);
             log("[L: %d][ID: %d] Confirmation not yet received, checking message sent again to process %d.\n", lamportClock, currentProcID, nextProcID);
         }
         pthread_mutex_unlock(&confirmationReceivedMtx);
     }
-    if (lamportClock <= LAMPORT_VALUE_TO_FINISH) {
-        log("[L: %d][ID: %d] Confirmation received, closing DT.\n", lamportClock, currentProcID, 0);
-    }
+    log("[L: %d][ID: %d] Confirmation received, closing DT.\n", lamportClock, currentProcID, 0);
     pthread_exit(NULL);
 }
 
@@ -171,16 +174,18 @@ int main (int argc, char *argv[])
 
     srand(time(NULL) + currentProcID);
 
-	const int nitems = 5;
-	int blocklengths[5] = {1, 1, 1, 1, 1};
-	MPI_Datatype types[5] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
-	MPI_Aint offsets[5];
+	const int nitems = 7;
+	int blocklengths[7] = {1, 1, 1, 1, 1, 1, 1};
+	MPI_Datatype types[7] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
+	MPI_Aint offsets[7];
 
 	offsets[0] = offsetof(msg, initiator);
 	offsets[1] = offsetof(msg, seen_token);
 	offsets[2] = offsetof(msg, token_id);
 	offsets[3] = offsetof(msg, with_token);
     offsets[4] = offsetof(msg, lamport);
+    offsets[5] = offsetof(msg, last_id);
+    offsets[6] = offsetof(msg, last_lamport);
 
     MPI_Type_create_struct(nitems, blocklengths, offsets, types, &mpi_data);
 	MPI_Type_commit(&mpi_data);
@@ -210,7 +215,8 @@ int main (int argc, char *argv[])
             } else {
                 currentTokenID = recv.token_id;
             }
-            sendMsg(recv.initiator, currentProcID, currentTokenID, WITHOUT_TOKEN, UNSURE_SENDING);
+            lastLamport = lamportClock;
+            sendMsg(recv.initiator, currentProcID, currentTokenID, WITHOUT_TOKEN, currentProcID, lastLamport, UNSURE_SENDING);
             createThread(CS_TYPE);
             pthread_mutex_lock(&confirmationReceivedMtx);
             confirmationReceived = false;
@@ -222,14 +228,20 @@ int main (int argc, char *argv[])
             confirmationReceived = true;
             pthread_mutex_unlock(&confirmationReceivedMtx);
         } else if (recv.initiator == currentProcID && recv.seen_token == NOBODY_SEES_TOKEN && currentTokenID == recv.token_id && !hasToken) {
-            log("[L: %d][ID: %d] Receive OUR checking message (token wasn't seen). Token WASN'T received by next process. :( Resending TOKEN.\n", lamportClock, currentProcID, 0);
-            sendMsg(currentProcID, NOBODY_SEES_TOKEN, currentTokenID, WITH_TOKEN, UNSURE_SENDING);
-        } else if (recv.initiator == currentProcID && recv.seen_token == NOBODY_SEES_TOKEN) {
-            bool tokens = currentTokenID == recv.token_id;
-            if (hasToken) {
-                log("[L: %d][ID: %d] Receive OUR checking message (token wasn't seen). We are in CS. Tokens Id comparison: %d\n", lamportClock, currentProcID, tokens);
+            if (recv.last_id == currentProcID) {
+                log("[L: %d][ID: %d] Receive OUR checking message (token wasn't seen). Token WASN'T received by next process. :( Resending TOKEN.\n", lamportClock, currentProcID, 0);
+                sendMsg(currentProcID, NOBODY_SEES_TOKEN, currentTokenID, WITH_TOKEN, currentProcID, lastLamport, UNSURE_SENDING);
             } else {
-                log("[L: %d][ID: %d] Receive OUR checking message (token wasn't seen). We are NOT in CS. Tokens Id comparison: %d\n", lamportClock, currentProcID, tokens);
+                pthread_mutex_lock(&confirmationReceivedMtx);
+                confirmationReceived = true;
+                pthread_mutex_unlock(&confirmationReceivedMtx);
+                log("[L: %d][ID: %d] Receive OUR checking message (token wasn't seen). We are NOT in CS. Last Process holding token: %d\n", lamportClock, currentProcID, recv.last_id);
+            }   
+        } else if (recv.initiator == currentProcID && recv.seen_token == NOBODY_SEES_TOKEN) {
+            if (hasToken) {
+                log("[L: %d][ID: %d] Receive OUR checking message (token wasn't seen). We are in CS. Last Process holding token: %d\n", lamportClock, currentProcID, recv.last_id);
+            } else {
+                log("[L: %d][ID: %d] Receive OUR checking message (token wasn't seen). We are NOT in CS. Last Process holding token: %d\n", lamportClock, currentProcID, recv.last_id);
             }
         } else if (recv.seen_token == NOBODY_SEES_TOKEN) {
             int token_id = recv.token_id;
@@ -238,10 +250,14 @@ int main (int argc, char *argv[])
             }
             if (hasToken) {
                 log("[L: %d][ID: %d] Receive SOMEONE'S (%d) checking message (token wasn't seen). We are in CS.\n", lamportClock, currentProcID, recv.initiator);
-                sendMsg(recv.initiator, currentProcID, token_id, WITHOUT_TOKEN, UNSURE_SENDING);
+                sendMsg(recv.initiator, currentProcID, token_id, WITHOUT_TOKEN, currentProcID, lastLamport, UNSURE_SENDING);
             } else {
                 log("[L: %d][ID: %d] Receive SOMEONE'S (%d) checking message (token wasn't seen). We are NOT in CS.\n", lamportClock, currentProcID, recv.initiator);
-                sendMsg(recv.initiator, recv.seen_token, token_id, WITHOUT_TOKEN, UNSURE_SENDING);
+                if (recv.last_lamport <= lastLamport) {
+                    sendMsg(recv.initiator, recv.seen_token, token_id, WITHOUT_TOKEN, currentProcID, lastLamport, UNSURE_SENDING);
+                } else {
+                    sendMsg(recv.initiator, recv.seen_token, token_id, WITHOUT_TOKEN, recv.last_id, recv.last_lamport, UNSURE_SENDING);
+                }
             }
         } else if (recv.seen_token != NOBODY_SEES_TOKEN) {
             int token_id = recv.token_id;
@@ -249,12 +265,12 @@ int main (int argc, char *argv[])
                 token_id = currentTokenID;
             }
             log("[L: %d][ID: %d] Receive SOMEONE'S (%d) checking message (token was seen). Just retransmit.\n", lamportClock, currentProcID, recv.initiator);
-            sendMsg(recv.initiator, recv.seen_token, token_id, WITHOUT_TOKEN, UNSURE_SENDING);
+            sendMsg(recv.initiator, recv.seen_token, token_id, WITHOUT_TOKEN, recv.last_id, recv.last_lamport, UNSURE_SENDING);
         }
     }
 
     log("[L: %d][ID: %d] Finished. Waiting for all.\n", lamportClock, currentProcID, 0);
-    sendMsg(currentProcID, NOBODY_SEES_TOKEN, currentTokenID, WITHOUT_TOKEN, SURE_SENDING);
+    sendMsg(currentProcID, NOBODY_SEES_TOKEN, currentTokenID, WITHOUT_TOKEN, currentProcID, lastLamport, SURE_SENDING);
     MPI_Barrier(MPI_COMM_WORLD);
 
     if (currentProcID != PROCESS_ZERO) {
@@ -274,7 +290,7 @@ int main (int argc, char *argv[])
     }
     fclose(oFile);
 
-    sendMsg(TTL, NOBODY_SEES_TOKEN, currentTokenID, WITHOUT_TOKEN, SURE_SENDING);
+    sendMsg(TTL, NOBODY_SEES_TOKEN, currentTokenID, WITHOUT_TOKEN, currentProcID, lastLamport, SURE_SENDING);
     MPI_Barrier(MPI_COMM_WORLD);
 
     if (currentProcID == PROCESS_ZERO) {
@@ -298,3 +314,6 @@ int main (int argc, char *argv[])
     MPI_Finalize();
     return 0;
 }
+//TODO jest problem z tym error0 że z jakiegoś powodu 4 się jebie
+//TODO ogarnąć jak ogarnąć działanie lamporta w nieskończonośc (coby nie wywaliło nam MAX_INT)
+//TODO ogarnąć czy potrzeben są te token_id
