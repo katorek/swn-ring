@@ -22,7 +22,6 @@
 #define WITHOUT_TOKEN 0
 #define PROCESS_ZERO 0
 #define TTL -100
-#define NOBODY_SEES_TOKEN -1
 #define LAMPORT_VALUE_TO_FINISH 600 //set INT_MAX for infinite
 
 //set percentage og succesfull msg delivery
