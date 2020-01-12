@@ -14,7 +14,7 @@
 #define DT_TYPE 1
 
 //TIME
-#define TIMEOUT_TIME 150
+#define TIMEOUT_TIME 3000
 #define CS_TIME 300
 
 //TOKEN AND PROCESSES
@@ -208,8 +208,12 @@ int main (int argc, char *argv[])
                 confirmationReceived = true;
                 pthread_mutex_unlock(&confirmationReceivedMtx);
             } else {
-                log("[L: %d][ID: %d] Receive OUR checking message (token wasn't seen). Token WASN'T received by next process. :( Resending TOKEN. TokenID: %d\n", lamportClock, currentProcID, currentTokenId);
-                sendMsg(currentProcID, WITH_TOKEN, currentTokenId, UNSURE_SENDING);
+                if (hasToken) {
+                    log("[L: %d][ID: %d] Receive OUR checking message (token wasn't seen). WE ARE IN CS NOW, IGNORE. TokenID: %d\n", lamportClock, currentProcID, currentTokenId);
+                } else {
+                    log("[L: %d][ID: %d] Receive OUR checking message (token wasn't seen). Token WASN'T received by next process. :( Resending TOKEN. TokenID: %d\n", lamportClock, currentProcID, currentTokenId);
+                    sendMsg(currentProcID, WITH_TOKEN, currentTokenId, UNSURE_SENDING);
+                }
             }
         } else {
             if ((recv.token_id + 1) % (2 * N) == currentTokenId) {

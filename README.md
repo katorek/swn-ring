@@ -11,4 +11,6 @@ Commands Ubuntu
 sudo apt install libopenmpi-dev
 mpicc ring.c -o ring.o -Wall
 mpirun -np <N> ring.o
+
+mpirun -np <N> --hostfile hosts ring.o
 ```
