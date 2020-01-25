@@ -1,0 +1,5 @@
+#!/bin/bash
+echo "Logs stored in $1"
+cat $1 | egrep 'Enter|Leav' | cut -d: -f3- | sed 's/]//g' | sed -e 's/\(nt.*\)//g' | sed -e 's/\(ea.*\)//g' > 1.txt
+while read x1; do x2=$x1; read x1; echo "$x2 $x1"; done <1.txt > 2.txt
+while read x; do IFS=' ' read -r -a a <<< "$x"; if [ "${a[0]}" == "${a[2]}" ]; then if [ "${a[1]}" == "E" ]  && [ "${a[3]}" == "L" ]; then echo "T"; else echo "F2"; fi; else echo "F"; fi ;done < 2.txt | sed \$d | sort | uniq
